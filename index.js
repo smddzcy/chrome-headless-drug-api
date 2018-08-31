@@ -3,20 +3,19 @@ const cheerio = require('cheerio')
 const express = require('express')
 const app = express()
 
-const getBrowserPage = (() => {
-  let page
-  return async () => {
-    if (!page) {
-      const browser = await puppeteer.launch()
-      page = await browser.newPage()
-      page.on('console', msg => {
-        for (let i = 0; i < msg.args().length; ++i)
-          console.log(`Console called with param ${i}: ${msg.args()[i]}`)
-      })
-    }
-    return page
-  }
-})()
+let browser
+puppeteer.launch().then(b => {
+  console.log('Browser launched');
+  browser = b
+})
+
+const getBrowserPage = async () => {
+  page = await browser.newPage()
+  page.on('console', msg => {
+    for (let i = 0; i < msg.args().length; ++i)
+      console.log(`Console called with param ${i}: ${msg.args()[i]}`)
+  })
+}
 
 app.get('/ping', (req, res) => {
   res.send('pong')
@@ -40,6 +39,7 @@ app.get('/drugDetails', async (req, res) => {
       delete drugs[name].forms[form].dosage_sort
     }
   }
+  page.close()
 
   return res.json({
     drugs,
@@ -64,6 +64,7 @@ app.get('/drugStores', async (req, res) => {
     price: row.querySelector('.drug-price').innerText,
     url: row.querySelector('.pricerow-button button').dataset['href'].slice(1)
   })))
+  page.close()
 
   return res.json({
     stores,
@@ -80,6 +81,8 @@ app.get('/couponDetails', async (req, res) => {
   await page.waitForSelector('#clipping')
 
   const coupon = await page.evaluate(() => window.couponDrug)
+  page.close()
+
   return res.json({
     coupon,
   })
