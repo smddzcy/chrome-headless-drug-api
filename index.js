@@ -41,16 +41,16 @@ app.get('/drugDetails', async (req, res) => {
         delete drugs[name].forms[form].dosage_sort
       }
     }
-    page.close()
+    res.json({
+      drugs,
+    })
   } catch (e) {
-    return res.json({
+    res.json({
       error: e
     })
+  } finally {
+    page.close()
   }
-
-  return res.json({
-    drugs,
-  })
 })
 
 app.get('/drugStores', async (req, res) => {
@@ -72,16 +72,17 @@ app.get('/drugStores', async (req, res) => {
       price: row.querySelector('.drug-price').innerText,
       url: row.querySelector('.pricerow-button button').dataset['href'].slice(1)
     })))
-    page.close()
+
+    res.json({
+      stores,
+    })
   } catch (e) {
-    return res.json({
+    res.json({
       error: e
     })
+  } finally {
+    page.close()
   }
-
-  return res.json({
-    stores,
-  })
 })
 
 app.get('/couponDetails', async (req, res) => {
@@ -95,16 +96,16 @@ app.get('/couponDetails', async (req, res) => {
     await page.waitForSelector('#clipping')
 
     const coupon = await page.evaluate(() => window.couponDrug)
-    page.close()
+    res.json({
+      coupon,
+    })
   } catch (e) {
-    return res.json({
+    res.json({
       error: e
     })
+  } finally {
+    page.close()
   }
-
-  return res.json({
-    coupon,
-  })
 })
 
 app.listen(3000, () => console.log('listening on port: 3000'))
