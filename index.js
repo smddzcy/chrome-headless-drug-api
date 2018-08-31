@@ -18,6 +18,10 @@ const getBrowserPage = (() => {
   }
 })()
 
+app.get('/ping', (req, res) => {
+  res.send('pong')
+})
+
 app.get('/drugDetails', async (req, res) => {
   const page = await getBrowserPage()
   await page.goto(`https://www.goodrx.com/${req.query.name}/what-is`)
@@ -68,7 +72,9 @@ app.get('/drugStores', async (req, res) => {
 
 app.get('/couponDetails', async (req, res) => {
   const page = await getBrowserPage()
-  const { url } = req.query
+  const {
+    url
+  } = req.query
 
   await page.goto(`https://www.goodrx.com/${url}`)
   await page.waitForSelector('#clipping')
