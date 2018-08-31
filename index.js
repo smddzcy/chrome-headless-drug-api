@@ -27,7 +27,6 @@ app.get('/drugDetails', async (req, res) => {
   await page.goto(`https://www.goodrx.com/${req.query.name}/what-is`)
 
   try {
-    await page.waitForSelector('#configPanel #drug .config-options')
     const data = await page.$eval('#jsonData #drug', node => JSON.parse(node.innerHTML))
 
     const drugs = data.equivalent_drugs
@@ -65,7 +64,6 @@ app.get('/drugStores', async (req, res) => {
 
   try {
     await page.goto(`https://www.goodrx.com/${name}?form=${form}&dosage=${dosage}&quantity=${quantity}&label_override=${brand}`)
-    await page.waitForSelector('.price-row')
 
     const stores = await page.$$eval('.price-row', rows => rows.map(row => ({
       name: row.querySelector('.store-name').innerText,
@@ -93,8 +91,6 @@ app.get('/couponDetails', async (req, res) => {
 
   try {
     await page.goto(`https://www.goodrx.com/${url}`)
-    await page.waitForSelector('#clipping')
-
     const coupon = await page.evaluate(() => window.couponDrug)
     res.json({
       coupon,
