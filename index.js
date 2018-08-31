@@ -15,6 +15,7 @@ const getBrowserPage = async () => {
     for (let i = 0; i < msg.args().length; ++i)
       console.log(`Console called with param ${i}: ${msg.args()[i]}`)
   })
+  return page
 }
 
 app.get('/ping', (req, res) => {
