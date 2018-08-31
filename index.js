@@ -68,7 +68,7 @@ app.get('/drugStores', async (req, res) => {
     const stores = await page.$$eval('.price-row', rows => rows.map(row => ({
       name: row.querySelector('.store-name').innerText,
       price: row.querySelector('.drug-price').innerText,
-      url: row.querySelector('.pricerow-button button').dataset['href'].slice(1)
+      url: encodeURIComponent(row.querySelector('.pricerow-button button').dataset['href'].slice(1))
     })))
 
     res.json({
