@@ -1,7 +1,17 @@
+require('dotenv').config()
+
 const puppeteer = require('puppeteer')
 const cheerio = require('cheerio')
 const express = require('express')
+const fs = require('fs');
+const request = require('request');
+const vision = require('@google-cloud/vision').v1p3beta1;
+
 const app = express()
+const gcvImageAnnotator = new vision.ImageAnnotatorClient();
+
+let imageCache = {}
+let drugDetailCache = {}
 
 let browser
 puppeteer.launch().then(b => {
@@ -22,33 +32,136 @@ app.get('/ping', (req, res) => {
   res.send('pong')
 })
 
+const getDrugDetails = async (page, name) => {
+  const nameLowerCase = name.toLowerCase()
+  if (drugDetailCache[nameLowerCase]) return drugDetailCache[nameLowerCase];
+  await page.goto(`https://www.goodrx.com/${nameLowerCase}/what-is`)
+  const data = await page.$eval('#jsonData #drug', node => JSON.parse(node.innerHTML))
+
+  const drugs = data.equivalent_drugs
+  // Remove unnecessary fields
+  for (const name in drugs) {
+    delete drugs[name].slug
+    delete drugs[name].form_sort
+    delete drugs[name].default_days_supply
+
+    for (var form in drugs[name].forms) {
+      delete drugs[name].forms[form].dosage_sort
+    }
+  }
+
+  return drugs
+}
+
 app.get('/drugDetails', async (req, res) => {
   const page = await getBrowserPage()
-  await page.goto(`https://www.goodrx.com/${req.query.name}/what-is`)
 
-  try {
-    const data = await page.$eval('#jsonData #drug', node => JSON.parse(node.innerHTML))
-
-    const drugs = data.equivalent_drugs
-    // Remove unnecessary fields
-    for (const name in drugs) {
-      delete drugs[name].slug
-      delete drugs[name].form_sort
-      delete drugs[name].default_days_supply
-
-      for (var form in drugs[name].forms) {
-        delete drugs[name].forms[form].dosage_sort
+  if (req.query.name) {
+    try {
+      const drugs = await getDrugDetails(page, req.query.name)
+      res.json({
+        drugs,
+      })
+    } catch (e) {
+      console.error(e);
+      res.json({
+        error: e
+      })
+    } finally {
+      page.close()
+    }
+  } else if (req.query.image) {
+    if (imageCache[req.query.image]) {
+      try {
+        const drugs = await getDrugDetails(page, imageCache[req.query.image]);
+        return res.json({ drugs })
+      } catch (e) {
+        console.error(e)
+        return res.json({ error: 'Prescription read unsuccessfully' });
       }
     }
-    res.json({
-      drugs,
-    })
-  } catch (e) {
-    res.json({
-      error: e
-    })
-  } finally {
-    page.close()
+    const tempFilename = `img-temp-${Date.now()}`;
+    request(req.query.image).pipe(fs.createWriteStream(tempFilename)).on('close', () => {
+      // image downloaded
+      const request = {
+        image: {
+          content: fs.readFileSync(tempFilename),
+        },
+        feature: {
+          languageHints: ['en-t-i0-handwrit'],
+        },
+      };
+      gcvImageAnnotator
+        .documentTextDetection(request)
+        .then(async (results) => {
+          const text = results[0].fullTextAnnotation.text.replace(/[^\w\d\s]/g, '');
+          
+          let regex = /(\w+)\s?\d+\s?mg/g, match;
+          while (match = regex.exec(text)) {
+            let name = match[1].trim()
+            console.log(`trying ${name}`);
+            
+            try {
+              const drugs = await getDrugDetails(page, name)
+              imageCache[req.query.image] = name
+              return res.json({
+                drugs
+              })
+            } catch (ignored) {}
+          }
+
+          regex = /(\w+)?\s?(\w+)?\s?(\w+)\s?\d+\s?mg/g
+          while (match = regex.exec(text)) {
+            match = match.filter(r => !!r)
+            let name = ''
+            for (let index = match.length - 1; index > 0; index--) {
+              name = `${match[index].trim()} ${name}`.trim()
+              // console.log(`name: ${name}`);
+              console.log(`trying ${name}`);
+              try {
+                const drugs = await getDrugDetails(page, name)
+                imageCache[req.query.image] = name
+                return res.json({ drugs })
+              } catch (ignored) {}
+  
+              try {
+                const idvName = match[index].trim()
+                console.log(`trying ${idvName}`);
+                // console.log(`idvName: ${idvName}`);
+                const drugs = await getDrugDetails(page, idvName)
+                imageCache[req.query.image] = idvName
+                return res.json({
+                  drugs
+                })
+              } catch (ignored) {}
+            }
+          }
+
+          regex = /(\w+)\s?(\d+)/g, match;
+          while (match = regex.exec(text)) {
+            if (match[2] < 50) continue;
+            let name = match[1].trim()
+            console.log(`trying ${name}`);
+            
+            try {
+              const drugs = await getDrugDetails(page, name)
+              imageCache[req.query.image] = name
+              return res.json({
+                drugs
+              })
+            } catch (ignored) {}
+          }
+
+          res.json({ error: 'Prescription read unsuccessfully' });
+        })
+        .catch(e => {
+          console.error(e);
+          res.json({ error: e.error });
+        })
+        .finally(() => {
+          fs.unlink(tempFilename);
+        });
+    });
   }
 })
 
@@ -75,6 +188,7 @@ app.get('/drugStores', async (req, res) => {
       stores,
     })
   } catch (e) {
+    console.error(e);
     res.json({
       error: e
     })
@@ -96,6 +210,7 @@ app.get('/couponDetails', async (req, res) => {
       coupon,
     })
   } catch (e) {
+    console.error(e);
     res.json({
       error: e
     })
