@@ -91,6 +91,7 @@ app.get('/drugDetails', async (req, res) => {
           languageHints: ['en-t-i0-handwrit'],
         },
       };
+      fs.unlink(tempFilename);
       gcvImageAnnotator
         .documentTextDetection(request)
         .then(async (results) => {
@@ -151,16 +152,12 @@ app.get('/drugDetails', async (req, res) => {
               })
             } catch (ignored) {}
           }
-
           res.json({ error: 'Prescription read unsuccessfully' });
         })
         .catch(e => {
           console.error(e);
           res.json({ error: e.error });
         })
-        .finally(() => {
-          fs.unlink(tempFilename);
-        });
     });
   }
 })
