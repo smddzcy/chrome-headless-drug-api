@@ -71,9 +71,10 @@ app.get('/drugDetails', async (req, res) => {
       page.close()
     }
   } else if (req.query.image) {
-    if (imageCache[req.query.image]) {
+    const imageLowerCase = req.query.image.toLowerCase()
+    if (imageCache[imageLowerCase]) {
       try {
-        const drugs = await getDrugDetails(page, imageCache[req.query.image]);
+        const drugs = await getDrugDetails(page, imageCache[imageLowerCase]);
         return res.json({ drugs })
       } catch (e) {
         console.error(e)
@@ -104,7 +105,7 @@ app.get('/drugDetails', async (req, res) => {
             
             try {
               const drugs = await getDrugDetails(page, name)
-              imageCache[req.query.image] = name
+              imageCache[imageLowerCase] = name.toLowerCase()
               return res.json({
                 drugs
               })
@@ -121,7 +122,7 @@ app.get('/drugDetails', async (req, res) => {
               console.log(`trying ${name}`);
               try {
                 const drugs = await getDrugDetails(page, name)
-                imageCache[req.query.image] = name
+                imageCache[imageLowerCase] = name.toLowerCase()
                 return res.json({ drugs })
               } catch (ignored) {}
   
@@ -146,7 +147,7 @@ app.get('/drugDetails', async (req, res) => {
             
             try {
               const drugs = await getDrugDetails(page, name)
-              imageCache[req.query.image] = name
+              imageCache[imageLowerCase] = name.toLowerCase()
               return res.json({
                 drugs
               })
