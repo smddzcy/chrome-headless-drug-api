@@ -53,6 +53,36 @@ const getDrugDetails = async (page, name) => {
   return drugs
 }
 
+const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand = ''}, res) => {
+  const page = await getBrowserPage()
+
+  try {
+    await page.goto(`https://www.goodrx.com/${name}?form=${form || ''}&dosage=${dosage || ''}&quantity=${quantity || ''}&label_override=${brand || ''}`)
+
+    const stores = await page.$$eval('.price-row', rows => rows.filter(row => !!row.querySelector('.drug-price')).map(row => ({
+      name: row.querySelector('.store-name').innerText,
+      price: row.querySelector('.drug-price').innerText,
+      url: row.querySelector('.pricerow-button button').dataset['href'] && encodeURIComponent(row.querySelector('.pricerow-button button').dataset['href'].slice(1))
+    })))
+
+    res.json({
+      stores,
+    })
+  } catch (e) {
+    console.error(e);
+    res.json({
+      error: { ...e }
+    })
+  } finally {
+    page.close()
+  }
+}
+
+app.get('/defaultStores', async (req, res) => {
+  const { name } = req.query
+  getDrugStores({ name }, res);
+})
+
 app.get('/drugDetails', async (req, res) => {
   const page = await getBrowserPage()
 
@@ -164,35 +194,8 @@ app.get('/drugDetails', async (req, res) => {
 })
 
 app.get('/drugStores', async (req, res) => {
-  const page = await getBrowserPage()
-  const {
-    name,
-    brand,
-    form,
-    dosage,
-    quantity
-  } = req.query
-
-  try {
-    await page.goto(`https://www.goodrx.com/${name}?form=${form}&dosage=${dosage}&quantity=${quantity}&label_override=${brand}`)
-
-    const stores = await page.$$eval('.price-row', rows => rows.map(row => ({
-      name: row.querySelector('.store-name').innerText,
-      price: row.querySelector('.drug-price').innerText,
-      url: encodeURIComponent(row.querySelector('.pricerow-button button').dataset['href'].slice(1))
-    })))
-
-    res.json({
-      stores,
-    })
-  } catch (e) {
-    console.error(e);
-    res.json({
-      error: e
-    })
-  } finally {
-    page.close()
-  }
+  const { name, brand, form, dosage, quantity } = req.query
+  getDrugStores({ name, brand, form, dosage, quantity }, res);
 })
 
 app.get('/couponDetails', async (req, res) => {
