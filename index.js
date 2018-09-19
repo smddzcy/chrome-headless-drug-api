@@ -53,11 +53,16 @@ const getDrugDetails = async (page, name) => {
   return drugs
 }
 
-const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand = ''}, res) => {
+const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand = '', zip}, res) => {
   const page = await getBrowserPage()
 
   try {
     await page.goto(`https://www.goodrx.com/${name}?form=${form || ''}&dosage=${dosage || ''}&quantity=${quantity || ''}&label_override=${brand || ''}`)
+
+    if (zip) {
+      await page.goto(`https://www.goodrx.com/change-location?location=${zip}`)
+      await page.goto(`https://www.goodrx.com/${name}?form=${form || ''}&dosage=${dosage || ''}&quantity=${quantity || ''}&label_override=${brand || ''}`)
+    }
 
     const stores = await page.$$eval('.price-row', rows => rows.filter(row => !!row.querySelector('.drug-price')).map(row => ({
       name: row.querySelector('.store-name').innerText,
@@ -79,8 +84,8 @@ const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand
 }
 
 app.get('/defaultStores', async (req, res) => {
-  const { name } = req.query
-  getDrugStores({ name }, res);
+  const { name, zip } = req.query
+  getDrugStores({ name, zip }, res);
 })
 
 app.get('/drugDetails', async (req, res) => {
@@ -194,8 +199,8 @@ app.get('/drugDetails', async (req, res) => {
 })
 
 app.get('/drugStores', async (req, res) => {
-  const { name, brand, form, dosage, quantity } = req.query
-  getDrugStores({ name, brand, form, dosage, quantity }, res);
+  const { name, brand, form, dosage, zip, quantity } = req.query
+  getDrugStores({ name, brand, form, dosage, zip, quantity }, res);
 })
 
 app.get('/couponDetails', async (req, res) => {
