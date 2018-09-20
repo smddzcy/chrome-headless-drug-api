@@ -65,8 +65,8 @@ const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand
     }
 
     const stores = await page.$$eval('.price-row', rows => rows.filter(row => !!row.querySelector('.drug-price')).map(row => ({
-      name: row.querySelector('.store-name').innerText,
-      price: row.querySelector('.drug-price').innerText,
+      name: row.querySelector('.pricerow-store .store-name').innerText,
+      price: row.querySelector('.pricerow-drugprice .drug-price').innerText,
       url: row.querySelector('.pricerow-button button').dataset['href'] && encodeURIComponent(row.querySelector('.pricerow-button button').dataset['href'].slice(1))
     })))
 
