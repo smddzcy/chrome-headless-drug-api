@@ -30,7 +30,8 @@ const getBrowserPage = async () => {
 }
 
 app.get('/ping', (req, res) => {
-  res.send('pong')
+  console.log('health check');
+  res.send('pong');
 })
 
 const getDrugDetails = async (page, name) => {
@@ -73,6 +74,7 @@ const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand
 
 app.get('/defaultStores', async (req, res) => {
   const { name, zip } = req.query
+  console.log('in default stores');
   getDrugStores({ name, zip }, res);
 })
 
