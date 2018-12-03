@@ -39,9 +39,7 @@ const getDrugDetails = async (page, name) => {
   if (drugDetailCache[nameLowerCase]) return drugDetailCache[nameLowerCase];
   await page.goto(`https://www.goodrx.com/${nameLowerCase}/what-is`)
   const state = await page.evaluate(() => __state__);
-  let choices = state.reduxAsyncConnect.drugPageData.drugConcepts.choices;
-  choices = _.omit(choices, ['id', 'image', 'label_type' ]);
-
+  const choices = (state.reduxAsyncConnect.drugPageData.drugConcepts.choices || []).map(c => _.omit(c, ['id', 'image', 'label_type' ]));
   return choices;
 }
 
