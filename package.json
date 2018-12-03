@@ -12,6 +12,7 @@
     "@google-cloud/vision": "^0.21.0",
     "cheerio": "^1.0.0-rc.2",
     "express": "^4.16.3",
+    "lodash": "^4.17.11",
     "puppeteer": "^1.7.0"
   },
   "devDependencies": {

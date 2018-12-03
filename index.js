@@ -4,6 +4,7 @@ const puppeteer = require('puppeteer')
 const cheerio = require('cheerio')
 const express = require('express')
 const fs = require('fs');
+const _ = require('lodash');
 const request = require('request');
 const vision = require('@google-cloud/vision').v1p3beta1;
 
@@ -36,21 +37,11 @@ const getDrugDetails = async (page, name) => {
   const nameLowerCase = name.toLowerCase()
   if (drugDetailCache[nameLowerCase]) return drugDetailCache[nameLowerCase];
   await page.goto(`https://www.goodrx.com/${nameLowerCase}/what-is`)
-  const data = await page.$eval('#jsonData #drug', node => JSON.parse(node.innerHTML))
+  const state = await page.evaluate(() => __state__);
+  let choices = state.reduxAsyncConnect.drugPageData.drugConcepts.choices;
+  choices = _.omit(choices, ['id', 'image', 'label_type' ]);
 
-  const drugs = data.equivalent_drugs
-  // Remove unnecessary fields
-  for (const name in drugs) {
-    delete drugs[name].slug
-    delete drugs[name].form_sort
-    delete drugs[name].default_days_supply
-
-    for (var form in drugs[name].forms) {
-      delete drugs[name].forms[form].dosage_sort
-    }
-  }
-
-  return drugs
+  return choices;
 }
 
 const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand = '', zip}, res) => {
@@ -64,11 +55,8 @@ const getDrugStores = async ({name, form = '', dosage = '', quantity = '', brand
       await page.goto(`https://www.goodrx.com/${name}?form=${form || ''}&dosage=${dosage || ''}&quantity=${quantity || ''}&label_override=${brand || ''}`)
     }
 
-    const stores = await page.$$eval('.price-row', rows => rows.filter(row => !!row.querySelector('.drug-price')).map(row => ({
-      name: row.querySelector('.pricerow-store .store-name').innerText,
-      price: row.querySelector('.pricerow-drugprice .drug-price').innerText,
-      url: row.querySelector('.pricerow-button button').dataset['href'] && encodeURIComponent(row.querySelector('.pricerow-button button').dataset['href'].slice(1))
-    })))
+    const state = await page.evaluate(() => __state__);
+    const stores = state.reduxAsyncConnect.drugPageData.prices.results;
 
     res.json({
       stores,
@@ -94,14 +82,10 @@ app.get('/drugDetails', async (req, res) => {
   if (req.query.name) {
     try {
       const drugs = await getDrugDetails(page, req.query.name)
-      res.json({
-        drugs,
-      })
+      res.json({ drugs })
     } catch (e) {
       console.error(e);
-      res.json({
-        error: e
-      })
+      res.json({ error: e })
     } finally {
       page.close()
     }
@@ -120,12 +104,8 @@ app.get('/drugDetails', async (req, res) => {
     request(req.query.image).pipe(fs.createWriteStream(tempFilename)).on('close', () => {
       // image downloaded
       const request = {
-        image: {
-          content: fs.readFileSync(tempFilename),
-        },
-        feature: {
-          languageHints: ['en-t-i0-handwrit'],
-        },
+        image: { content: fs.readFileSync(tempFilename) },
+        feature: { languageHints: ['en-t-i0-handwrit'] },
       };
       fs.unlink(tempFilename);
       gcvImageAnnotator
@@ -167,9 +147,7 @@ app.get('/drugDetails', async (req, res) => {
                 // console.log(`idvName: ${idvName}`);
                 const drugs = await getDrugDetails(page, idvName)
                 imageCache[req.query.image] = idvName
-                return res.json({
-                  drugs
-                })
+                return res.json({ drugs })
               } catch (ignored) {}
             }
           }
@@ -183,9 +161,7 @@ app.get('/drugDetails', async (req, res) => {
             try {
               const drugs = await getDrugDetails(page, name)
               imageCache[imageLowerCase] = name.toLowerCase()
-              return res.json({
-                drugs
-              })
+              return res.json({ drugs })
             } catch (ignored) {}
           }
           res.json({ error: 'Prescription read unsuccessfully' });
